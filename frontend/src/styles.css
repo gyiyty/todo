@@ -135,12 +135,16 @@ input:focus, textarea:focus, select:focus { border-color: #6e9d93; box-shadow: 0
 .field > span { width: 105px; display: flex; align-items: center; gap: 9px; color: #69716d; }
 .field > span svg { width: 17px; }
 .field > input, .field > select { min-width: 0; flex: 1; height: 38px; padding: 0 9px; border-color: transparent; background: #f6f7f5; }
+.field.datetime-field { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 11px 0; }
+.field.datetime-field > span { width: auto; }
+.field.datetime-field > input { width: 100%; }
 .field.stacked { display: grid; grid-template-columns: 105px 1fr; align-items: start; padding: 14px 0; }
 .field.stacked > span { padding-top: 7px; }
 .reminder-actions, .tag-picker { display: flex; flex-wrap: wrap; gap: 6px; }
 .reminder-actions button, .tag-picker button { min-height: 32px; padding: 0 9px; border: 1px solid #dce1dd; background: #f7f8f6; border-radius: 7px; color: #5d6561; font-size: 11px; display: inline-flex; align-items: center; gap: 5px; }
 .tag-picker button.selected { color: var(--accent-dark); border-color: #91b2aa; background: var(--accent-soft); }
 .reminder-row { grid-column: 2; display: flex; min-height: 36px; align-items: center; justify-content: space-between; gap: 5px; color: #59625e; font-size: 12px; }
+.reminder-row.absolute-reminder { grid-column: 1 / -1; }
 .reminder-row input { flex: 1; height: 34px; padding: 0 7px; }
 .repeat-fields { display: grid; grid-template-columns: 70px 1fr; gap: 7px; }
 .repeat-fields input, .repeat-fields select { min-width: 0; height: 36px; padding: 0 8px; }
