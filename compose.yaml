@@ -1,0 +1,37 @@
+services:
+  todo:
+    build: .
+    image: personal-todo:1.0.0
+    container_name: personal-todo
+    restart: unless-stopped
+    environment:
+      TODO_LISTEN_ADDR: 0.0.0.0:8787
+      TODO_BASE_URL: ${TODO_BASE_URL:-http://127.0.0.1:8787}
+      TODO_DATABASE_PATH: /data/todo.db
+      TODO_BACKUP_DIR: /backups
+      TODO_TIMEZONE: Asia/Shanghai
+      TZ: Asia/Shanghai
+    ports:
+      - 127.0.0.1:8787:8787
+    volumes:
+      - todo_data:/data
+      - todo_backups:/backups
+    mem_limit: 128m
+    cpus: 0.50
+    pids_limit: 128
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "3"
+
+volumes:
+  todo_data:
+  todo_backups:

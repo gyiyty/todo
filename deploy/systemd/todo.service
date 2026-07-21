@@ -1,0 +1,24 @@
+[Unit]
+Description=Personal Todo Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/yunyyyy/todo
+Environment=TODO_LISTEN_ADDR=127.0.0.1:8787
+Environment=TODO_BASE_URL=http://127.0.0.1:8787
+Environment=TODO_DATABASE_PATH=/home/yunyyyy/todo/data/todo.db
+Environment=TODO_BACKUP_DIR=/home/yunyyyy/todo/data/backups
+Environment=TODO_TIMEZONE=Asia/Shanghai
+ExecStart=/home/yunyyyy/todo/bin/todo
+Restart=on-failure
+RestartSec=3
+MemoryMax=128M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/yunyyyy/todo/data
+
+[Install]
+WantedBy=default.target

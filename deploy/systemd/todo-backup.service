@@ -1,0 +1,9 @@
+[Unit]
+Description=Backup Personal Todo SQLite Database
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/yunyyyy/todo
+Environment=TODO_DATABASE_PATH=/home/yunyyyy/todo/data/todo.db
+Environment=TODO_BACKUP_DIR=/home/yunyyyy/todo/data/backups
+ExecStart=/home/yunyyyy/todo/bin/todo backup

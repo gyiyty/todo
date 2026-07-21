@@ -1,0 +1,20 @@
+{
+  "name": "todo-web",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "cp node_modules/lucide-static/icons/square-check-big.svg public/icon.svg && tsc -b && vite build && touch ../internal/webui/dist/.gitkeep",
+    "dev": "vite --host 127.0.0.1"
+  },
+  "dependencies": {
+    "lucide-preact": "^0.468.0",
+    "preact": "^10.25.4"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.1",
+    "lucide-static": "^1.25.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}

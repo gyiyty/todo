@@ -1,0 +1,12 @@
+{
+  "name": "拾光待办",
+  "short_name": "待办",
+  "description": "轻量个人待办任务管理",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f8f6",
+  "theme_color": "#357266",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
