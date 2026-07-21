@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'preact/hooks'
 import {
   Archive, Bell, CalendarDays, Check, CheckCircle2, ChevronLeft, Circle, Clock3,
-  Inbox, KeyRound, List as ListIcon, LogOut, Menu, MoreHorizontal, Plus, RefreshCw,
-  Repeat2, Save, Search, Settings, Tag as TagIcon, Trash2, Webhook, X
+  FilePenLine, Inbox, KeyRound, LayoutGrid, List as ListIcon, LogOut, Menu,
+  MoreHorizontal, Plus, RefreshCw, Repeat2, Save, Search, Settings, SlidersHorizontal, Tag as TagIcon,
+  Trash2, Webhook, X
 } from 'lucide-preact'
 import { api, APIError, del, patch, post, put } from './api'
 import type { Delivery, List, Notification, Reminder, Tag, Task, TaskInput, TokenSummary, User } from './types'
 
-type View = 'today' | 'inbox' | 'upcoming' | 'all' | 'completed' | 'notifications' | 'settings' | `list:${string}`
+type View = 'today' | 'inbox' | 'upcoming' | 'all' | 'matrix' | 'completed' | 'notifications' | 'settings' | `list:${string}`
 
 const viewLabels: Record<string, string> = {
-  today: '今天', inbox: '收件箱', upcoming: '近期', all: '全部任务', completed: '已完成', notifications: '提醒通知', settings: '设置'
+  today: '今天', inbox: '收件箱', upcoming: '近期', all: '全部任务', matrix: '四象限', completed: '已完成', notifications: '提醒通知', settings: '设置'
 }
 
 const priorityLabels = ['无', '低', '中', '高']
@@ -31,6 +32,12 @@ function formatDate(value?: string, withTime = true) {
 }
 
 function readError(error: unknown) { return error instanceof Error ? error.message : '发生未知错误' }
+
+function dateKey(value: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(value)
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)?.value || ''
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
 
 export function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined)
@@ -85,8 +92,11 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [selected, setSelected] = useState<Task | null>(null)
   const [creating, setCreating] = useState(false)
+  const [creationDraft, setCreationDraft] = useState({ title: '', listID: '' })
   const [search, setSearch] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  const [priorityFilter, setPriorityFilter] = useState('')
+  const [tagFilters, setTagFilters] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [menuOpen, setMenuOpen] = useState(false)
   const [notice, setNotice] = useState('')
@@ -109,6 +119,8 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
     else if (view === 'inbox') params.set('list_id', 'inbox')
     else params.set('view', view)
     if (search.trim()) params.set('q', search.trim())
+    if (priorityFilter) params.set('priority', priorityFilter)
+    tagFilters.forEach(id => params.append('tag_id', id))
     try {
       const loaded = await api<Task[]>(`/tasks?${params}`)
       setTasks(loaded)
@@ -118,7 +130,7 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
   }
 
   useEffect(() => { loadMeta().catch(error => showNotice(readError(error))) }, [])
-  useEffect(() => { loadTasks() }, [view, search])
+  useEffect(() => { loadTasks() }, [view, search, priorityFilter, tagFilters])
 
   function showNotice(message: string) {
     setNotice(message); window.setTimeout(() => setNotice(''), 3500)
@@ -146,6 +158,10 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
     await del(`/tasks/${task.id}`); setSelected(null); await Promise.all([loadTasks(), loadMeta()]); showNotice('任务已删除')
   }
 
+  function startCreate(title = '', listID = selectedList?.id || '') {
+    setCreationDraft({ title, listID }); setSelected(null); setCreating(true)
+  }
+
   const editorTask = creating ? null : selected
   const isEditorOpen = creating || !!selected
 
@@ -163,18 +179,21 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
       </header>
 
       {view === 'settings' ? <SettingsPage notify={showNotice} /> : view === 'notifications' ? <NotificationsPage notify={showNotice} /> : <>
-        <QuickAdd lists={lists} defaultList={selectedList?.id} onCreated={async () => { await Promise.all([loadTasks(), loadMeta()]); showNotice('任务已添加') }} />
-        <section class="task-list" aria-label={title}>
-          {loading ? <LoadingRows /> : tasks.length === 0 ? <EmptyState view={view} onCreate={() => setCreating(true)} /> : tasks.map(task =>
-            <TaskRow key={task.id} task={task} active={selected?.id === task.id} onSelect={() => { setSelected(task); setCreating(false) }} onComplete={() => complete(task)} />
-          )}
-        </section>
+        <QuickAdd lists={lists} defaultList={selectedList?.id} onDetailedCreate={startCreate} onCreated={async () => { await Promise.all([loadTasks(), loadMeta()]); showNotice('任务已添加') }} />
+        <TaskFilters tags={tags} priority={priorityFilter} selectedTags={tagFilters} onPriorityChange={setPriorityFilter} onTagsChange={setTagFilters} />
+        {view === 'matrix'
+          ? <MatrixView tasks={tasks} loading={loading} timeZone={user.timezone} activeTaskID={selected?.id} onSelect={task => { setSelected(task); setCreating(false) }} onComplete={complete} />
+          : <section class="task-list" aria-label={title}>
+            {loading ? <LoadingRows /> : tasks.length === 0 ? <EmptyState view={view} onCreate={() => startCreate()} /> : tasks.map(task =>
+              <TaskRow key={task.id} task={task} active={selected?.id === task.id} onSelect={() => { setSelected(task); setCreating(false) }} onComplete={() => complete(task)} />
+            )}
+          </section>}
       </>}
     </main>
 
-    {isEditorOpen && <TaskEditor task={editorTask} lists={lists} tags={tags} defaultList={selectedList?.id} onClose={() => { setSelected(null); setCreating(false) }} onSave={saveTask} onDelete={deleteTask} onTagsChanged={async () => setTags(await api<Tag[]>('/tags'))} notify={showNotice} />}
+    {isEditorOpen && <TaskEditor task={editorTask} lists={lists} tags={tags} defaultList={creating ? creationDraft.listID : selectedList?.id} initialTitle={creating ? creationDraft.title : ''} onClose={() => { setSelected(null); setCreating(false) }} onSave={saveTask} onDelete={deleteTask} onTagsChanged={async () => setTags(await api<Tag[]>('/tags'))} notify={showNotice} />}
 
-    {!isEditorOpen && view !== 'settings' && view !== 'notifications' && <button class="fab" title="新建任务" onClick={() => setCreating(true)}><Plus /></button>}
+    {!isEditorOpen && view !== 'settings' && view !== 'notifications' && <button class="fab" title="新建任务" onClick={() => startCreate()}><Plus /></button>}
     <MobileNav view={view} setView={value => { setView(value); setSelected(null); setCreating(false) }} />
     {notice && <div class="toast" role="status">{notice}</div>}
   </div>
@@ -184,7 +203,7 @@ function Sidebar({ view, setView, lists, counts, user, onLogout, onListsChanged,
   view: View; setView: (view: View) => void; lists: List[]; counts: Record<string, number>; user: User; onLogout: () => void; onListsChanged: () => Promise<void>; open: boolean; onClose: () => void
 }) {
   const [adding, setAdding] = useState(false); const [name, setName] = useState('')
-  const nav: Array<[View, typeof Inbox, string]> = [['inbox', Inbox, '收件箱'], ['today', CalendarDays, '今天'], ['upcoming', Clock3, '近期'], ['all', ListIcon, '全部任务'], ['completed', CheckCircle2, '已完成']]
+  const nav: Array<[View, typeof Inbox, string]> = [['inbox', Inbox, '收件箱'], ['today', CalendarDays, '今天'], ['upcoming', Clock3, '近期'], ['all', ListIcon, '全部任务'], ['matrix', LayoutGrid, '四象限'], ['completed', CheckCircle2, '已完成']]
   async function addList(event: Event) { event.preventDefault(); if (!name.trim()) return; await post('/lists', { name }); setName(''); setAdding(false); await onListsChanged() }
   return <>
     {open && <button class="sidebar-scrim mobile-only" onClick={onClose} aria-label="关闭菜单" />}
@@ -206,11 +225,52 @@ function Sidebar({ view, setView, lists, counts, user, onLogout, onListsChanged,
   </>
 }
 
-function QuickAdd({ lists, defaultList, onCreated }: { lists: List[]; defaultList?: string; onCreated: () => void }) {
+function QuickAdd({ lists, defaultList, onCreated, onDetailedCreate }: { lists: List[]; defaultList?: string; onCreated: () => void; onDetailedCreate: (title: string, listID: string) => void }) {
   const [title, setTitle] = useState(''); const [listID, setListID] = useState(defaultList || '')
   useEffect(() => setListID(defaultList || ''), [defaultList])
   async function submit(event: Event) { event.preventDefault(); if (!title.trim()) return; await post('/tasks', { title: title.trim(), list_id: listID, reminders: [], tag_ids: [] }); setTitle(''); onCreated() }
-  return <form class="quick-add" onSubmit={submit}><Plus /><input value={title} onInput={e => setTitle(e.currentTarget.value)} placeholder="快速添加任务" aria-label="任务标题" /><select value={listID} onChange={e => setListID(e.currentTarget.value)} aria-label="选择清单"><option value="">收件箱</option>{lists.map(list => <option value={list.id}>{list.name}</option>)}</select><button class="primary compact" disabled={!title.trim()}>添加</button></form>
+  function openDetailed() { onDetailedCreate(title.trim(), listID); setTitle('') }
+  return <form class="quick-add" onSubmit={submit}><Plus /><input value={title} onInput={e => setTitle(e.currentTarget.value)} placeholder="快速添加任务" aria-label="任务标题" /><select value={listID} onChange={e => setListID(e.currentTarget.value)} aria-label="选择清单"><option value="">收件箱</option>{lists.map(list => <option value={list.id}>{list.name}</option>)}</select><button type="button" class="secondary detailed-add" onClick={openDetailed} title="新建详细任务"><FilePenLine /><span>详细</span></button><button class="primary compact" disabled={!title.trim()}>添加</button></form>
+}
+
+function TaskFilters({ tags, priority, selectedTags, onPriorityChange, onTagsChange }: {
+  tags: Tag[]; priority: string; selectedTags: string[]; onPriorityChange: (value: string) => void; onTagsChange: (value: string[]) => void
+}) {
+  const active = priority !== '' || selectedTags.length > 0
+  return <div class="task-filters" aria-label="任务筛选">
+    <SlidersHorizontal />
+    <select value={priority} onChange={event => onPriorityChange(event.currentTarget.value)} aria-label="按优先级筛选">
+      <option value="">全部优先级</option>
+      {priorityLabels.map((label, index) => <option value={index}>{label}</option>)}
+    </select>
+    {tags.length > 0 && <div class="filter-tags" aria-label="按标签筛选">
+      {tags.map(tag => <button type="button" class={selectedTags.includes(tag.id) ? 'selected' : ''} aria-pressed={selectedTags.includes(tag.id)} onClick={() => onTagsChange(selectedTags.includes(tag.id) ? selectedTags.filter(id => id !== tag.id) : [...selectedTags, tag.id])}><i style={{ background: tag.color }} />{tag.name}</button>)}
+    </div>}
+    {active && <button type="button" class="icon-button tiny clear-filters" title="清除筛选" onClick={() => { onPriorityChange(''); onTagsChange([]) }}><X /></button>}
+  </div>
+}
+
+function MatrixView({ tasks, loading, timeZone, activeTaskID, onSelect, onComplete }: {
+  tasks: Task[]; loading: boolean; timeZone: string; activeTaskID?: string; onSelect: (task: Task) => void; onComplete: (task: Task) => void
+}) {
+  const quadrants = useMemo(() => {
+    const today = dateKey(new Date(), timeZone)
+    const groups: Task[][] = [[], [], [], []]
+    tasks.forEach(task => {
+      const important = task.priority >= 2
+      const urgent = !!task.due_at && dateKey(new Date(task.due_at), timeZone) <= today
+      groups[important ? (urgent ? 0 : 1) : (urgent ? 2 : 3)].push(task)
+    })
+    return groups
+  }, [tasks, timeZone])
+  const labels = ['重要且紧急', '重要不紧急', '紧急不重要', '不重要不紧急']
+  if (loading) return <section class="matrix-loading"><LoadingRows /></section>
+  return <section class="matrix-board" aria-label="任务四象限">
+    {quadrants.map((items, index) => <section class={`matrix-quadrant q${index + 1}`}>
+      <header><span>{labels[index]}</span><em>{items.length}</em></header>
+      <div>{items.length === 0 ? <p class="quadrant-empty">暂无任务</p> : items.map(task => <TaskRow key={task.id} task={task} active={activeTaskID === task.id} onSelect={() => onSelect(task)} onComplete={() => onComplete(task)} />)}</div>
+    </section>)}
+  </section>
 }
 
 function TaskRow({ task, active, onSelect, onComplete }: { task: Task; active: boolean; onSelect: () => void; onComplete: () => void }) {
@@ -223,6 +283,7 @@ function TaskRow({ task, active, onSelect, onComplete }: { task: Task; active: b
         {task.due_at && <span class={overdue ? 'overdue' : ''}><CalendarDays />{formatDate(task.due_at)}</span>}
         {task.list && <span><i style={{ background: task.list.color }} />{task.list.name}</span>}
         {task.priority > 0 && <span class={`priority p${task.priority}`}>{priorityLabels[task.priority]}</span>}
+        {task.tags.map(tag => <span class="task-tag"><i style={{ background: tag.color }} />{tag.name}</span>)}
         {task.recurrence_unit && <span><Repeat2 />重复</span>}
       </span>
     </button>
@@ -230,10 +291,10 @@ function TaskRow({ task, active, onSelect, onComplete }: { task: Task; active: b
   </article>
 }
 
-function TaskEditor({ task, lists, tags, defaultList, onClose, onSave, onDelete, onTagsChanged, notify }: {
-  task: Task | null; lists: List[]; tags: Tag[]; defaultList?: string; onClose: () => void; onSave: (id: string | null, input: TaskInput) => Promise<void>; onDelete: (task: Task) => Promise<void>; onTagsChanged: () => Promise<void>; notify: (message: string) => void
+function TaskEditor({ task, lists, tags, defaultList, initialTitle, onClose, onSave, onDelete, onTagsChanged, notify }: {
+  task: Task | null; lists: List[]; tags: Tag[]; defaultList?: string; initialTitle: string; onClose: () => void; onSave: (id: string | null, input: TaskInput) => Promise<void>; onDelete: (task: Task) => Promise<void>; onTagsChanged: () => Promise<void>; notify: (message: string) => void
 }) {
-  const [title, setTitle] = useState(task?.title || '')
+  const [title, setTitle] = useState(task?.title || initialTitle)
   const [notes, setNotes] = useState(task?.notes || '')
   const [listID, setListID] = useState(task?.list_id || defaultList || '')
   const [dueAt, setDueAt] = useState(toLocalInput(task?.due_at))
@@ -306,6 +367,6 @@ function SettingsPage({ notify }: { notify: (message: string) => void }) {
 }
 
 function MobileNav({ view, setView }: { view: View; setView: (view: View) => void }) {
-  const items: Array<[View, typeof Inbox, string]> = [['inbox', Inbox, '收件箱'], ['today', CalendarDays, '今天'], ['upcoming', Clock3, '近期'], ['all', ListIcon, '全部']]
+  const items: Array<[View, typeof Inbox, string]> = [['inbox', Inbox, '收件箱'], ['today', CalendarDays, '今天'], ['upcoming', Clock3, '近期'], ['matrix', LayoutGrid, '象限'], ['all', ListIcon, '全部']]
   return <nav class="mobile-nav">{items.map(([id, Icon, label]) => <button class={view === id ? 'active' : ''} onClick={() => setView(id)}><Icon /><span>{label}</span></button>)}</nav>
 }

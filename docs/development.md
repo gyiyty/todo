@@ -94,7 +94,7 @@ All application APIs use JSON under `/api/v1`; errors have the shape `{"error":"
 | Admin | `/tokens`, `/integrations/astrbot`, `/integrations/astrbot/deliveries` |
 | Health | `GET /health/live`, `GET /health/ready` |
 
-Task list filters include `view=today|upcoming|completed`, `list_id`, `q`, and `priority`; results are capped at 500. Relative reminders store an offset in minutes and are recalculated when a due date changes. Absolute reminders keep their explicit trigger time.
+Task list filters include `view=today|upcoming|completed`, `list_id`, `q`, `priority`, and repeatable `tag_id` values; repeated tags use AND semantics and results are capped at 500. The frontend matrix treats priority 2-3 as important and tasks due on or before the current configured-timezone date as urgent. Relative reminders store an offset in minutes and are recalculated when a due date changes. Absolute reminders keep their explicit trigger time.
 
 ## 7. Reminder and AstrBot flow
 

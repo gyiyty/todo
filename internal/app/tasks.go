@@ -270,6 +270,12 @@ FROM tasks t LEFT JOIN lists l ON l.id = t.list_id WHERE 1 = 1`
 			args = append(args, parsed)
 		}
 	}
+	for _, tagID := range r.URL.Query()["tag_id"] {
+		if tagID = strings.TrimSpace(tagID); tagID != "" {
+			query += " AND EXISTS (SELECT 1 FROM task_tags filtered_tags WHERE filtered_tags.task_id = t.id AND filtered_tags.tag_id = ?)"
+			args = append(args, tagID)
+		}
+	}
 	query += " ORDER BY t.done, CASE WHEN t.due_at IS NULL THEN 1 ELSE 0 END, t.due_at, t.priority DESC, t.created_at DESC LIMIT 500"
 	rows, err := s.db.Query(query, args...)
 	if err != nil {

@@ -146,6 +146,32 @@ func TestCSRFMandatory(t *testing.T) {
 	}
 }
 
+func TestTaskFiltersByPriorityAndTags(t *testing.T) {
+	env := newTestEnvironment(t)
+	createTag := func(name string) Tag {
+		response := env.request(t, http.MethodPost, "/api/v1/tags", map[string]any{"name": name}, true, "")
+		var tag Tag
+		decodeResponse(t, response, &tag)
+		return tag
+	}
+	work, focus := createTag("工作"), createTag("专注")
+	tasks := []map[string]any{
+		{"title": "匹配全部条件", "priority": 3, "tag_ids": []string{work.ID, focus.ID}},
+		{"title": "缺少标签", "priority": 3, "tag_ids": []string{work.ID}},
+		{"title": "优先级不同", "priority": 2, "tag_ids": []string{work.ID, focus.ID}},
+	}
+	for _, input := range tasks {
+		decodeResponse(t, env.request(t, http.MethodPost, "/api/v1/tasks", input, true, ""), &Task{})
+	}
+
+	response := env.request(t, http.MethodGet, "/api/v1/tasks?priority=3&tag_id="+work.ID+"&tag_id="+focus.ID, nil, false, "")
+	var filtered []Task
+	decodeResponse(t, response, &filtered)
+	if len(filtered) != 1 || filtered[0].Title != "匹配全部条件" {
+		t.Fatalf("unexpected filtered tasks: %#v", filtered)
+	}
+}
+
 func TestReminderWebhookSignature(t *testing.T) {
 	env := newTestEnvironment(t)
 	secret := "a webhook secret longer than twenty four chars"
