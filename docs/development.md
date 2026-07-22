@@ -122,6 +122,11 @@ The service worker caches only GET application assets; offline mutations and con
 
 Local prerequisites are Go 1.24+, GCC/CGO, Node 20+ and npm. The container build uses Node 22. Node 18 currently builds with a dependency warning but is not the supported development baseline.
 
+The Docker build defaults to `https://goproxy.cn` for module downloads and
+`sum.golang.google.cn` for checksum verification because the production host
+cannot reach the default Go services. Both are Docker build arguments named
+`GOPROXY` and `GOSUMDB`; callers outside that network may override them.
+
 ```bash
 make build GO=go       # builds frontend, then an 8-10 MiB stripped binary
 make test GO=go        # builds frontend and runs Go tests
@@ -131,6 +136,13 @@ go vet ./...
 Backend tests in `internal/app/server_test.go` use temporary SQLite databases and real `httptest` servers. They cover login/CSRF, recurrence, token scope isolation, signed webhook delivery, backup, and password policy. UI changes should additionally be checked at approximately 1440x900 and 390x844 viewports.
 
 For production, `compose.yaml` binds only `127.0.0.1:8787`, drops Linux capabilities, uses a read-only root filesystem, and limits the container to 128 MiB and half a CPU. Set `TODO_BASE_URL` to the final HTTPS origin before login. Host deployment can use the units in `deploy/systemd`; the timer is an extra backup trigger in addition to the built-in daily backup.
+
+The current temporary BT Panel deployment is direct HTTPS on
+`120.79.29.34:38675`, documented in `docs/public-deployment.md`. A private CA
+signs a server certificate whose SAN contains the public IP. Trusted personal
+devices install only the public CA certificate; CA and server private keys stay
+off Git. Nginx rate-limits login before proxying to the loopback-only application
+port. Cloudflare is not in this request path.
 
 ## 10. Current boundaries
 

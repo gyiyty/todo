@@ -24,13 +24,18 @@ ssh -L 8787:127.0.0.1:8787 user@server
 
 ```bash
 cp .env.example .env
-# 修改 TODO_BASE_URL 为实际 HTTPS 域名
+# 修改 TODO_BASE_URL 为实际 HTTPS 地址
 docker compose up -d --build
 printf '%s\n' '管理员密码' | docker compose exec -T todo todo admin create yourname
 docker compose exec todo todo backup
 ```
 
 容器只向宿主机回环地址映射端口。用 `deploy/nginx.conf.example` 配置宝塔反向代理并申请 HTTPS 证书。
+
+当前服务器临时使用 `https://120.79.29.34:38675` 和私有 CA。完整部署、
+设备证书安装及验收步骤见 [`docs/public-deployment.md`](docs/public-deployment.md)，
+对应的宝塔 Nginx 配置见
+[`deploy/todo-ip-https.conf.example`](deploy/todo-ip-https.conf.example)。
 
 ## 运维
 
