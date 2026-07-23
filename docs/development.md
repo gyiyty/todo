@@ -108,6 +108,8 @@ X-Todo-Signature: sha256=<hex>
 
 Only a 2xx response marks delivery complete. Failures use exponential backoff from 30 seconds, capped at 6 hours, and become `dead` after 7 days. Admins can manually requeue dead deliveries. Delivery is at least once, so the AstrBot receiver must deduplicate by event ID. Keep payload and verification details synchronized with `docs/astrbot-integration.md`.
 
+The `reminder.due` task object includes `notes` as a string (empty when unset). This is an additive payload field and does not change signing, durable outbox creation, stable event IDs, retries, or deduplication. The AstrBot plugin sends only the task title and non-empty notes to its reminder LLM, without chat history or other task/Webhook metadata, and uses only the effective conversation persona as the system prompt. Fixed-format delivery remains the fallback for LLM failures.
+
 ## 8. Frontend
 
 Preact, TypeScript, Vite, and `lucide-preact` build a small responsive PWA. The API wrapper in `frontend/src/api.ts` owns credentials, JSON errors, and CSRF headers. `App.tsx` owns application state and the task/settings workflows; `styles.css` defines breakpoints:

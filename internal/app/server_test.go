@@ -187,7 +187,7 @@ func TestReminderWebhookSignature(t *testing.T) {
 	configResponse := env.request(t, http.MethodPut, "/api/v1/integrations/astrbot", map[string]any{"enabled": true, "url": target.URL, "secret": secret}, true, "")
 	decodeResponse(t, configResponse, &map[string]any{})
 	past := time.Now().UTC().Add(-time.Minute).Format(time.RFC3339)
-	taskResponse := env.request(t, http.MethodPost, "/api/v1/tasks", map[string]any{"title": "到期任务", "due_at": past, "tag_ids": []string{}, "reminders": []map[string]any{{"kind": "absolute", "trigger_at": past}}}, true, "")
+	taskResponse := env.request(t, http.MethodPost, "/api/v1/tasks", map[string]any{"title": "到期任务", "notes": "携带雨伞", "due_at": past, "tag_ids": []string{}, "reminders": []map[string]any{{"kind": "absolute", "trigger_at": past}}}, true, "")
 	decodeResponse(t, taskResponse, &Task{})
 	env.server.processReminders(context.Background())
 	env.server.processOutbox(context.Background())
@@ -204,8 +204,48 @@ func TestReminderWebhookSignature(t *testing.T) {
 		if request.Header.Get("X-Todo-Event-ID") == "" {
 			t.Fatal("missing event id")
 		}
+		var payload struct {
+			Task struct {
+				Title string `json:"title"`
+				Notes string `json:"notes"`
+			} `json:"task"`
+		}
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.Task.Title != "到期任务" || payload.Task.Notes != "携带雨伞" {
+			t.Fatalf("unexpected webhook task: %#v", payload.Task)
+		}
 	case <-time.After(time.Second):
 		t.Fatal("webhook not delivered")
+	}
+}
+
+func TestReminderWebhookIncludesEmptyNotes(t *testing.T) {
+	env := newTestEnvironment(t)
+	past := time.Now().UTC().Add(-time.Minute).Format(time.RFC3339)
+	response := env.request(t, http.MethodPost, "/api/v1/tasks", map[string]any{
+		"title": "无备注任务", "due_at": past, "tag_ids": []string{},
+		"reminders": []map[string]any{{"kind": "absolute", "trigger_at": past}},
+	}, true, "")
+	decodeResponse(t, response, &Task{})
+	_, err := env.server.db.Exec(`INSERT INTO webhook_config(id,enabled,url,secret,updated_at)
+		VALUES(1,1,'http://example.invalid','a webhook secret longer than twenty four chars',?)`, nowString())
+	if err != nil {
+		t.Fatal(err)
+	}
+	env.server.processReminders(context.Background())
+	var encoded string
+	if err := env.server.db.QueryRow("SELECT payload FROM outbox").Scan(&encoded); err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(encoded), &payload); err != nil {
+		t.Fatal(err)
+	}
+	task := payload["task"].(map[string]any)
+	if notes, exists := task["notes"]; !exists || notes != "" {
+		t.Fatalf("expected empty notes field, got %#v", task)
 	}
 }
 

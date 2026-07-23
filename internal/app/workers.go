@@ -58,7 +58,7 @@ func (s *Server) runTicker(ctx context.Context, interval time.Duration, work fun
 }
 
 func (s *Server) processReminders(ctx context.Context) {
-	rows, err := s.db.QueryContext(ctx, `SELECT r.id, r.task_id, r.trigger_at, t.title, t.due_at, t.priority, l.name
+	rows, err := s.db.QueryContext(ctx, `SELECT r.id, r.task_id, r.trigger_at, t.title, t.notes, t.due_at, t.priority, l.name
 FROM reminders r JOIN tasks t ON t.id = r.task_id LEFT JOIN lists l ON l.id = t.list_id
 WHERE r.sent_at IS NULL AND r.trigger_at <= ? AND t.done = 0 AND t.archived = 0 ORDER BY r.trigger_at LIMIT 50`, nowString())
 	if err != nil {
@@ -66,26 +66,26 @@ WHERE r.sent_at IS NULL AND r.trigger_at <= ? AND t.done = 0 AND t.archived = 0 
 		return
 	}
 	type dueReminder struct {
-		ID, TaskID, TriggerAt, Title string
-		DueAt, ListName              sql.NullString
-		Priority                     int
+		ID, TaskID, TriggerAt, Title, Notes string
+		DueAt, ListName                     sql.NullString
+		Priority                            int
 	}
 	items := []dueReminder{}
 	for rows.Next() {
 		var item dueReminder
-		if rows.Scan(&item.ID, &item.TaskID, &item.TriggerAt, &item.Title, &item.DueAt, &item.Priority, &item.ListName) == nil {
+		if rows.Scan(&item.ID, &item.TaskID, &item.TriggerAt, &item.Title, &item.Notes, &item.DueAt, &item.Priority, &item.ListName) == nil {
 			items = append(items, item)
 		}
 	}
 	rows.Close()
 	for _, item := range items {
-		if err := s.fireReminder(ctx, item.ID, item.TaskID, item.TriggerAt, item.Title, item.DueAt, item.Priority, item.ListName); err != nil {
+		if err := s.fireReminder(ctx, item.ID, item.TaskID, item.TriggerAt, item.Title, item.Notes, item.DueAt, item.Priority, item.ListName); err != nil {
 			s.logger.Error("fire reminder", "reminder_id", item.ID, "error", err)
 		}
 	}
 }
 
-func (s *Server) fireReminder(ctx context.Context, reminderID, taskID, triggerAt, title string, dueAt sql.NullString, priority int, listName sql.NullString) error {
+func (s *Server) fireReminder(ctx context.Context, reminderID, taskID, triggerAt, title, notes string, dueAt sql.NullString, priority int, listName sql.NullString) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -113,7 +113,7 @@ func (s *Server) fireReminder(ctx context.Context, reminderID, taskID, triggerAt
 		eventID := newID("evt")
 		payload := map[string]any{
 			"event_id": eventID, "event_type": "reminder.due", "occurred_at": nowString(),
-			"task":     map[string]any{"id": taskID, "title": title, "due_at": nullableString(dueAt), "priority": priority, "list": nullableString(listName)},
+			"task":     map[string]any{"id": taskID, "title": title, "notes": notes, "due_at": nullableString(dueAt), "priority": priority, "list": nullableString(listName)},
 			"reminder": map[string]any{"id": reminderID, "trigger_at": triggerAt},
 		}
 		encoded, _ := json.Marshal(payload)
