@@ -195,16 +195,16 @@ input:focus, textarea:focus, select:focus { border-color: #6e9d93; box-shadow: 0
 .notification-list strong { font-size: 13px; }.notification-list time { color: var(--muted); font-size: 10px; }
 .notification-list button, .delivery-list button { min-height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: #fff; font-size: 11px; }
 
-.settings-page { display: grid; align-content: start; gap: 18px; }
+.settings-page { display: grid; grid-auto-rows: max-content; align-content: start; gap: 18px; }
 .settings-block { border: 1px solid #e0e4e0; background: #fff; border-radius: 11px; overflow: hidden; }
 .settings-heading { display: flex; gap: 13px; padding: 19px 21px; border-bottom: 1px solid var(--line); }
 .settings-heading > span { width: 37px; height: 37px; display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); border-radius: 9px; }
 .settings-heading svg { width: 17px; }
 .settings-form { padding: 20px 21px; display: grid; gap: 17px; }
-.settings-form input { height: 42px; padding: 0 11px; }
+.settings-form input:not([type="checkbox"]) { height: 42px; padding: 0 11px; }
 .settings-form .primary { justify-self: start; }
 .switch-row { display: flex !important; align-items: center; justify-content: space-between; }
-.switch-row input { width: 42px; accent-color: var(--accent); }
+.switch-row input { width: 18px; height: 18px; accent-color: var(--accent); }
 .token-create { display: flex; gap: 8px; padding: 16px 21px; border-bottom: 1px solid var(--line); }
 .token-create input { flex: 1; min-width: 0; padding: 0 11px; }
 .token-reveal { margin: 15px 21px; padding: 13px; display: grid; gap: 8px; background: #fff8df; border: 1px solid #ecdaa2; border-radius: 8px; }
